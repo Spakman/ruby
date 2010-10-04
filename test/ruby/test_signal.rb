@@ -181,4 +181,20 @@ class TestSignal < Test::Unit::TestCase
     w.close
     assert_equal(r.read, "foo")
   end
+
+  def test_signals_before_and_after_timer_thread
+    count = 0
+    Signal.trap(:USR1) { count += 1 }
+
+    Process.kill :USR1, Process.pid
+    assert_equal 1, count
+
+    th = Thread.new { sleep 0.5 }
+    Process.kill :USR1, Process.pid
+    assert_equal 2, count
+
+    th.join
+    Process.kill :USR1, Process.pid
+    assert_equal 3, count
+  end
 end

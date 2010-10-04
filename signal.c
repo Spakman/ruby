@@ -519,6 +519,11 @@ sighandler(int sig)
 #if !defined(BSD_SIGNAL) && !defined(POSIX_SIGNAL)
     ruby_signal(sig, sighandler);
 #endif
+
+    rb_vm_t *vm = GET_VM();
+    if (vm->running_thread == vm->main_thread) {
+        rb_threadptr_check_signal(vm->main_thread);
+    }
 }
 
 int
