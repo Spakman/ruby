@@ -402,6 +402,21 @@ extern void ruby_error_print(void);
 static VALUE rb_threadptr_raise(rb_thread_t *, int, VALUE *);
 void rb_thread_recycle_stack_release(VALUE *);
 
+static int
+vm_living_thread_num(rb_vm_t *vm)
+{
+    return vm->living_threads->num_entries;
+}
+
+void
+rb_thread_start_timer_thread(void)
+{
+    system_working = 1;
+    if (vm_living_thread_num(GET_VM()) > 1) {
+        rb_thread_create_timer_thread();
+    }
+}
+
 void
 ruby_thread_init_stack(rb_thread_t *th)
 {
@@ -562,6 +577,7 @@ thread_create_core(VALUE thval, VALUE args, VALUE (*fn)(ANYARGS))
 	th->status = THREAD_KILLED;
 	rb_raise(rb_eThreadError, "can't create Thread (%d)", err);
     }
+    rb_thread_start_timer_thread();
     return thval;
 }
 
@@ -577,6 +593,7 @@ thread_s_new(int argc, VALUE *argv, VALUE klass)
 	rb_raise(rb_eThreadError, "uninitialized thread - check `%s#initialize'",
 		 rb_class2name(klass));
     }
+    rb_thread_start_timer_thread();
     return thread;
 }
 
@@ -628,7 +645,6 @@ rb_thread_create(VALUE (*fn)(ANYARGS), void *arg)
 {
     return thread_create_core(rb_thread_alloc(rb_cThread), (VALUE)arg, fn);
 }
-
 
 /* +infty, for this purpose */
 #define DELAY_INFTY 1E30
@@ -710,6 +726,12 @@ thread_join(rb_thread_t *target_th, double delay)
 
     thread_debug("thread_join: success (thid: %p)\n",
 		 (void *)target_th->thread_id);
+
+    rb_disable_interrupt();
+    if (vm_living_thread_num(th->vm) == 1 && rb_signal_buff_size() == 0) {
+        rb_thread_stop_timer_thread();
+    }
+    rb_enable_interrupt();
 
     if (target_th->errinfo != Qnil) {
 	VALUE err = target_th->errinfo;
@@ -2107,12 +2129,6 @@ thread_keys_i(ID key, VALUE value, VALUE ary)
     return ST_CONTINUE;
 }
 
-static int
-vm_living_thread_num(rb_vm_t *vm)
-{
-    return vm->living_threads->num_entries;
-}
-
 int
 rb_thread_alone(void)
 {
@@ -2717,13 +2733,6 @@ void
 rb_thread_reset_timer_thread(void)
 {
     native_reset_timer_thread();
-}
-
-void
-rb_thread_start_timer_thread(void)
-{
-    system_working = 1;
-    rb_thread_create_timer_thread();
 }
 
 static int
@@ -4262,7 +4271,7 @@ Init_Thread(void)
 	}
     }
 
-    rb_thread_create_timer_thread();
+    rb_thread_start_timer_thread();
 
     (void)native_mutex_trylock;
 }

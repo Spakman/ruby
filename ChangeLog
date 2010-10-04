@@ -1,3 +1,9 @@
+Mon Oct  4 18:14:47 2010  Mark Somerville  <mark@scottishclimbs.com>
+
+	* process.c, signal.c, test/ruby/test_signal.rb,
+	  test/thread/test_timer_thread.rb: use the timer thread only when
+	  needed to schedule Ruby threads [bug #3436].
+
 Mon Oct  4 12:43:47 2010  Nobuyoshi Nakada  <nobu@ruby-lang.org>
 
 	* parse.y (regexp): dregexp has literal string only at the head
